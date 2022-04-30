@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -42,10 +41,10 @@ func main() {
 
 	//start the server
 	go func() {
-		log.Println("Starting server on port 9093")
+		l.Info("Starting server on port 9093")
 		err := s.ListenAndServe()
 		if err != nil {
-			log.Printf("Error starting server: %s\n", err)
+			l.Info("Error starting server: %s\n", err)
 			os.Exit(1)
 		}
 	}()
@@ -55,7 +54,7 @@ func main() {
 	signal.Notify(c, os.Kill)
 
 	sig := <-c
-	log.Println("Got signal:", sig)
+	l.Info("Got signal:", sig)
 
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 

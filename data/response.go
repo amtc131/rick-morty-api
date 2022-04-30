@@ -1,9 +1,7 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/hashicorp/go-hclog"
@@ -47,11 +45,10 @@ type ResponseBD struct {
 }
 
 func NewResponseDB(l hclog.Logger) *ResponseBD {
-	pb := &ResponseBD{l}
-	return pb
+	return &ResponseBD{l}
 }
 
-func (r *ResponseBD) Execute(path string, method string, rw http.ResponseWriter) (*Response, error) {
+func (r *ResponseBD) Execute(path string, method string) (*http.Response, error) {
 	r.log.Info("Calling API...")
 
 	endPoint := fmt.Sprintf("https://rickandmortyapi.com/api/%s", path)
@@ -71,19 +68,5 @@ func (r *ResponseBD) Execute(path string, method string, rw http.ResponseWriter)
 		fmt.Print(err.Error())
 	}
 
-	defer resp.Body.Close()
-
-	response := Response{}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-
-	json.Unmarshal(bodyBytes, &response)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-
-	return &response, err
+	return resp, err
 }
