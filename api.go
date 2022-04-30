@@ -1,91 +1,63 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"context"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"rick-morty/api/data"
+	server "rick-morty/api/server"
+
+	"github.com/gorilla/mux"
+	"github.com/hashicorp/go-hclog"
+	"github.com/nicholasjackson/env"
 )
 
-type Info struct {
-	Count int    `json:"count"`
-	Pages int    `json:"pages"`
-	Next  string `json:"next"`
-	Prev  string `json:"prev"`
-}
-
-type Character struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Species string `json:"species"`
-	Type    string `json:"type"`
-	Gender  string `json:"gender"`
-	Origin  struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"origin"`
-	Location struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"location"`
-	Image   string   `json:"image"`
-	Episode []string `json:"episode"`
-	URL     string   `json:"url"`
-	Created string   `json:"created"`
-}
-
-type response struct {
-	Info    Info        `json:"info"`
-	Results []Character `json:"results"`
-}
-
-func getCharacters(c *gin.Context) {
-
-	bodyBytes := exec("character", "GET")
-
-	var responseObject response
-	json.Unmarshal(bodyBytes, &responseObject)
-
-	c.IndentedJSON(http.StatusOK, responseObject)
-
-}
-
-func exec(path string, method string) []byte {
-	fmt.Println("Calling API...")
-
-	endPoint := fmt.Sprintf("https://rickandmortyapi.com/api/%s", path)
-
-	client := &http.Client{}
-
-	req, err := http.NewRequest(method, endPoint, nil)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-
-	defer resp.Body.Close()
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Print(err.Error())
-	}
-
-	return bodyBytes
-}
+var bindAddress = env.String("BIN_ADDRES", false, ":9093", "Bin addres for the server")
 
 func main() {
 
-	router := gin.Default()
-	router.GET("/character", getCharacters)
+	env.Parse()
+	l := hclog.Default()
 
-	router.Run("localhost:8080")
+	db := data.NewResponseDB(l)
+	ch := server.NewCharacter(l, db)
 
+	sm := mux.NewRouter()
+
+	getR := sm.Methods(http.MethodGet).Subrouter()
+	getR.HandleFunc("/character", ch.ListAll)
+
+	s := http.Server{
+		Addr:         *bindAddress,                                     // configure the bind addres
+		Handler:      sm,                                               // set the default handler
+		ErrorLog:     l.StandardLogger(&hclog.StandardLoggerOptions{}), // set the logger for the server
+		IdleTimeout:  120 * time.Second,                                // max time to read request from the client
+		ReadTimeout:  1 * time.Second,                                  // max time for connections using TCP keep-alive
+		WriteTimeout: 1 * time.Second,                                  // max tie to write response to the client
+	}
+
+	//start the server
+	go func() {
+		log.Println("Starting server on port 9093")
+		err := s.ListenAndServe()
+		if err != nil {
+			log.Printf("Error starting server: %s\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Kill)
+
+	sig := <-c
+	log.Println("Got signal:", sig)
+
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+
+	s.Shutdown(ctx)
 }
