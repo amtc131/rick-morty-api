@@ -17,11 +17,18 @@ func main() {
 
 	l.Info("Calling api")
 
-	httpClientApi := server.NewHttpClientApi("https://rickandmortyapi.com/api/character", &http.Client{})
+	httpClientApi := server.NewHttpClientApi("https://rickandmortyapi.com/api/character/", &http.Client{})
+
+	opions := map[string]interface{}{
+		"params": map[string]int{
+			"integer": 2,
+		},
+	}
 
 	response, err := httpClientApi.
 		Method(http.MethodGet).
 		Headers(headers).
+		Params(opions).
 		Do()
 
 	if err != nil {
