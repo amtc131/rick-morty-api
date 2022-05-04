@@ -44,5 +44,5 @@ func main() {
 		l.Error("Error to read data", err)
 		return
 	}
-	l.Info(string(datBytes))
+	l.Debug(string(datBytes))
 }
